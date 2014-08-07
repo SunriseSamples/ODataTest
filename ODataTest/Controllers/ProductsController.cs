@@ -9,23 +9,25 @@ using System.Net.Http;
 using System.Web;
 using System.Web.Http;
 using ODataTest.Models;
+using System.Web.Http.OData;
 
 namespace ODataTest.Controllers
 {
-    public class ProductsController : ApiController
+    public class ProductsController : ODataController
     {
         private ProductsContext db = new ProductsContext();
 
         // GET api/Products
-        public IEnumerable<Product> GetProducts()
+        [Queryable]
+        public IQueryable<Product> Get()
         {
-            return db.Products.AsEnumerable();
+            return db.Products;
         }
 
         // GET api/Products/5
-        public Product GetProduct(int id)
+        public Product Get(int id)
         {
-            Product product = db.Products.Find(id);
+            var product = db.Products.SingleOrDefault(p => p.ID == id);
             if (product == null)
             {
                 throw new HttpResponseException(Request.CreateResponse(HttpStatusCode.NotFound));
