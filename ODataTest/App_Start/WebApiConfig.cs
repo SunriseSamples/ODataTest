@@ -30,6 +30,8 @@ namespace ODataTest
             // 参考：http://www.asp.net/web-api/overview/odata-support-in-aspnet-web-api/odata-v3/creating-an-odata-endpoint
             var builder = new ODataConventionModelBuilder();
             builder.EntitySet<Product>("Products");
+            // 参考：http://www.asp.net/web-api/overview/odata-support-in-aspnet-web-api/odata-v3/working-with-entity-relations
+            builder.EntitySet<Supplier>("Suppliers");
             //config.Routes.MapODataRoute("OData", "odata", builder.GetEdmModel());
             config.Routes.MapODataServiceRoute("ODataRoute", "odata", builder.GetEdmModel());
         }

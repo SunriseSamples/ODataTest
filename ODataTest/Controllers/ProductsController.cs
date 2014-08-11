@@ -1,21 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
+﻿using Microsoft.Data.OData;
+using Microsoft.Data.OData.Query;
+using ODataTest.Models;
+using System;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Web;
+using System.Threading.Tasks;
 using System.Web.Http;
-using ODataTest.Models;
 using System.Web.Http.OData;
+using System.Web.Http.OData.Extensions;
+using System.Web.Http.OData.Routing;
+using System.Web.Http.Routing;
 
 namespace ODataTest.Controllers
 {
     public class ProductsController : ODataController
     {
         private ProductsContext db = new ProductsContext();
+
+        protected override void Dispose(bool disposing)
+        {
+            db.Dispose();
+            base.Dispose(disposing);
+        }
 
         // GET odata/Products
         [EnableQuery]
@@ -24,90 +34,225 @@ namespace ODataTest.Controllers
             return db.Products;
         }
 
-        // GET odata/Products/5
-        public Product Get(int id)
+        // GET odata/Products(5)
+        public Product Get([FromODataUri] int key)
         {
-            var product = db.Products.SingleOrDefault(p => p.ID == id);
+            var product = db.Products.SingleOrDefault(p => p.ID == key);
             if (product == null)
             {
-                throw new HttpResponseException(Request.CreateResponse(HttpStatusCode.NotFound));
+                throw new HttpResponseException(HttpStatusCode.NotFound);
             }
-
             return product;
         }
 
-        // PUT odata/Products/5
-        public HttpResponseMessage PutProduct(int id, Product product)
+        // POST odata/Products
+        public async Task<IHttpActionResult> Post(Product product)
         {
             if (!ModelState.IsValid)
             {
-                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, ModelState);
+                return BadRequest(ModelState);
             }
 
-            if (id != product.ID)
+            db.Products.Add(product);
+            await db.SaveChangesAsync();
+
+            var location = new Uri(Url.Link("ODataRoute", new { id = product.ID }));
+            return Created(location, product);
+        }
+
+        // PUT odata/Products(5)
+        public async Task<IHttpActionResult> Put([FromODataUri] int key, Product product)
+        {
+            if (!ModelState.IsValid || key != product.ID)
             {
-                return Request.CreateResponse(HttpStatusCode.BadRequest);
+                return BadRequest(ModelState);
             }
 
             db.Entry(product).State = EntityState.Modified;
 
             try
             {
-                db.SaveChanges();
+                await db.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                return Request.CreateErrorResponse(HttpStatusCode.NotFound, ex);
+                Debug.WriteLine(ex);
+                return NotFound();
             }
 
-            return Request.CreateResponse(HttpStatusCode.OK);
+            return Ok(product);
         }
 
-        // POST odata/Products
-        public HttpResponseMessage PostProduct(Product product)
+        // PATCH odata/Products(5)
+        public async Task<IHttpActionResult> Patch([FromODataUri] int key, Product patchProduct)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid || key != patchProduct.ID)
             {
-                db.Products.Add(product);
-                db.SaveChanges();
-
-                HttpResponseMessage response = Request.CreateResponse(HttpStatusCode.Created, product);
-                response.Headers.Location = new Uri(Url.Link("DefaultApi", new { id = product.ID }));
-                return response;
+                return BadRequest(ModelState);
             }
-            else
-            {
-                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, ModelState);
-            }
-        }
 
-        // DELETE odata/Products/5
-        public HttpResponseMessage DeleteProduct(int id)
-        {
-            Product product = db.Products.Find(id);
+            var product = await db.Products.FindAsync(key);
             if (product == null)
             {
-                return Request.CreateResponse(HttpStatusCode.NotFound);
+                return NotFound();
+            }
+
+            if (!String.IsNullOrEmpty(patchProduct.Name))
+            {
+                product.Name = patchProduct.Name;
+            }
+            product.Price = patchProduct.Price;
+            if (!String.IsNullOrEmpty(patchProduct.Category))
+            {
+                product.Category = patchProduct.Category;
+            }
+            if (!String.IsNullOrEmpty(patchProduct.SupplierId))
+            {
+                product.SupplierId = patchProduct.SupplierId;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                Debug.WriteLine(ex);
+                return NotFound();
+            }
+
+            return Ok(product);
+        }
+
+        // DELETE odata/Products(5)
+        public async Task<IHttpActionResult> Delete([FromODataUri] int key)
+        {
+            var product = await db.Products.FindAsync(key);
+            if (product == null)
+            {
+                return NotFound();
             }
 
             db.Products.Remove(product);
 
             try
             {
-                db.SaveChanges();
+                await db.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                return Request.CreateErrorResponse(HttpStatusCode.NotFound, ex);
+                Debug.WriteLine(ex);
+                return NotFound();
             }
 
-            return Request.CreateResponse(HttpStatusCode.OK, product);
+            return Ok(product);
         }
 
-        protected override void Dispose(bool disposing)
+        // GET odata/Products(5)/Supplier
+        public Supplier GetSupplier([FromODataUri] int key)
         {
-            db.Dispose();
-            base.Dispose(disposing);
+            Product product = db.Products.FirstOrDefault(p => p.ID == key);
+            if (product == null)
+            {
+                throw new HttpResponseException(HttpStatusCode.NotFound);
+            }
+            return product.Supplier;
         }
+
+        // Helper method to extract the key from an OData link URI.
+        private TKey GetKeyFromLinkUri<TKey>(Uri link)
+        {
+            TKey key = default(TKey);
+
+            // Get the route that was used for this request.
+            IHttpRoute route = Request.GetRouteData().Route;
+
+            // Create an equivalent self-hosted route. 
+            IHttpRoute newRoute = new HttpRoute(route.RouteTemplate,
+                new HttpRouteValueDictionary(route.Defaults),
+                new HttpRouteValueDictionary(route.Constraints),
+                new HttpRouteValueDictionary(route.DataTokens), route.Handler);
+
+            // Create a fake GET request for the link URI.
+            var tmpRequest = new HttpRequestMessage(HttpMethod.Get, link);
+
+            // Send this request through the routing process.
+            var routeData = newRoute.GetRouteData(
+                Request.GetConfiguration().VirtualPathRoot, tmpRequest);
+
+            // If the GET request matches the route, use the path segments to find the key.
+            if (routeData != null)
+            {
+                var path = tmpRequest.ODataProperties().Path;
+                var segment = path.Segments.OfType<KeyValuePathSegment>().FirstOrDefault();
+                if (segment != null)
+                {
+                    // Convert the segment into the key type.
+                    key = (TKey)ODataUriUtils.ConvertFromUriLiteral(
+                        segment.Value, ODataVersion.V3);
+                }
+            }
+            return key;
+        }
+
+        // POST odata/Products(1)/$links/Supplier
+        // PUT odata/Products(1)/$links/Supplier
+        // BODY {"link":"http://localhost/odata/Suppliers('CTSO')"}
+        [AcceptVerbs("POST", "PUT")]
+        public async Task<IHttpActionResult> CreateLink([FromODataUri] int key, string navigationProperty, [FromBody] Uri link)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            Product product = await db.Products.FindAsync(key);
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            switch (navigationProperty)
+            {
+                case "Supplier":
+                    string supplierKey = GetKeyFromLinkUri<string>(link);
+                    Supplier supplier = await db.Suppliers.FindAsync(supplierKey);
+                    if (supplier == null)
+                    {
+                        return NotFound();
+                    }
+                    product.Supplier = supplier;
+                    await db.SaveChangesAsync();
+                    return StatusCode(HttpStatusCode.NoContent);
+
+                default:
+                    return NotFound();
+            }
+        }
+
+        // DELETE odata/Products(1)/$links/Supplier
+        public async Task<IHttpActionResult> DeleteLink([FromODataUri] int key, string navigationProperty)
+        {
+            Product product = await db.Products.FindAsync(key);
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            switch (navigationProperty)
+            {
+                case "Supplier":
+                    product.Supplier = null;
+                    await db.SaveChangesAsync();
+                    return StatusCode(HttpStatusCode.NoContent);
+
+                default:
+                    return NotFound();
+
+            }
+        }
+
+        // DELETE odata/Customers(1)/$links/Orders(1)
+        // void DeleteLink([FromODataUri] int key, string relatedKey, string navigationProperty);
     }
 }
