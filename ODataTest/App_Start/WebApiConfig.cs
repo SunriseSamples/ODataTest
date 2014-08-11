@@ -27,9 +27,9 @@ namespace ODataTest
             config.EnableSystemDiagnosticsTracing();
 
             // 参考：http://www.asp.net/web-api/overview/odata-support-in-aspnet-web-api/odata-v3/creating-an-odata-endpoint
-            ODataConventionModelBuilder builder = new ODataConventionModelBuilder();
+            var builder = new ODataConventionModelBuilder();
             builder.EntitySet<Product>("Products");
-            config.Routes.MapODataRoute("odata", "odata", builder.GetEdmModel());
+            config.Routes.MapODataRoute("OData", "odata", builder.GetEdmModel());
         }
     }
 }

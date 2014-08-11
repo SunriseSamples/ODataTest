@@ -17,14 +17,14 @@ namespace ODataTest.Controllers
     {
         private ProductsContext db = new ProductsContext();
 
-        // GET api/Products
+        // GET odata/Products
         [Queryable]
         public IQueryable<Product> Get()
         {
             return db.Products;
         }
 
-        // GET api/Products/5
+        // GET odata/Products/5
         public Product Get(int id)
         {
             var product = db.Products.SingleOrDefault(p => p.ID == id);
@@ -36,7 +36,7 @@ namespace ODataTest.Controllers
             return product;
         }
 
-        // PUT api/Products/5
+        // PUT odata/Products/5
         public HttpResponseMessage PutProduct(int id, Product product)
         {
             if (!ModelState.IsValid)
@@ -63,7 +63,7 @@ namespace ODataTest.Controllers
             return Request.CreateResponse(HttpStatusCode.OK);
         }
 
-        // POST api/Products
+        // POST odata/Products
         public HttpResponseMessage PostProduct(Product product)
         {
             if (ModelState.IsValid)
@@ -81,7 +81,7 @@ namespace ODataTest.Controllers
             }
         }
 
-        // DELETE api/Products/5
+        // DELETE odata/Products/5
         public HttpResponseMessage DeleteProduct(int id)
         {
             Product product = db.Products.Find(id);
