@@ -18,7 +18,7 @@ namespace ODataTest.Controllers
         private ProductsContext db = new ProductsContext();
 
         // GET odata/Products
-        [Queryable]
+        [EnableQuery]
         public IQueryable<Product> Get()
         {
             return db.Products;
