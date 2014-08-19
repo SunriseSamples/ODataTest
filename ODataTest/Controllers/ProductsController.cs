@@ -37,7 +37,7 @@ namespace ODataTest.Controllers
         // GET odata/Products(5)
         public Product Get([FromODataUri] int key)
         {
-            var product = db.Products.SingleOrDefault(p => p.ID == key);
+            var product = db.Products.Find(key);
             if (product == null)
             {
                 throw new HttpResponseException(HttpStatusCode.NotFound);
@@ -151,7 +151,7 @@ namespace ODataTest.Controllers
         // GET odata/Products(5)/Supplier
         public Supplier GetSupplier([FromODataUri] int key)
         {
-            Product product = db.Products.FirstOrDefault(p => p.ID == key);
+            Product product = db.Products.Find(key);
             if (product == null)
             {
                 throw new HttpResponseException(HttpStatusCode.NotFound);
@@ -253,6 +253,6 @@ namespace ODataTest.Controllers
         }
 
         // DELETE odata/Customers(1)/$links/Orders(1)
-        // void DeleteLink([FromODataUri] int key, string relatedKey, string navigationProperty);
+        // public async Task<IHttpActionResult> DeleteLink([FromODataUri] int key, string relatedKey, string navigationProperty);
     }
 }

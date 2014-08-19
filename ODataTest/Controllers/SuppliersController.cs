@@ -31,7 +31,7 @@ namespace ODataTest.Controllers
         // GET odata/Suppliers('CTSO')
         public Supplier Get([FromODataUri] string key)
         {
-            var supplier = db.Suppliers.SingleOrDefault(p => p.Key == key);
+            var supplier = db.Suppliers.Find(key);
             if (supplier == null)
             {
                 throw new HttpResponseException(HttpStatusCode.NotFound);
